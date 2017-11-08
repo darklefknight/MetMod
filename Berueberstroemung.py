@@ -54,7 +54,7 @@ def Theta(x,z):
     """
 
     result =  Theta_0 * (1 + (N()*N()*(Z_s(x)-Verschiebung(x,z))))
-    return (x,z,result)
+    return result
 
 def u(x,z):
     """
@@ -66,7 +66,7 @@ def u(x,z):
     """
     der = derivative(Verschiebung(x,z),x0=z)
     result = U*(1-der)
-    return (x,z,result)
+    return result
 
 def w(x,z):
     """
@@ -78,7 +78,7 @@ def w(x,z):
     """
     der = derivative(Verschiebung(x,z),x0=x)
     result = U*der
-    return (x,z,result)
+    return result
 
 if __name__ == "__main__":
 
@@ -95,33 +95,52 @@ if __name__ == "__main__":
 
 
     # Gitter:
-    x_grid_length = 15000
-    z_grid_length = 10000
+    x_grid_start = -10000
+    x_grid_length = 10000
+    z_grid_length = 6000
     x_step = 100
     z_step = 1
     #Starte Berechnung
-    Theta_feld = []
     u_feld = []
     w_feld = []
-    verschiebungen = np.zeros([int(x_grid_length/x_step),int(z_grid_length/z_step)]).astype(float)
-    Berg = np.zeros(int(x_grid_length/z_step)).astype(float)
-    x_vals = []
-    z_vals = []
+    verschiebungen = np.zeros([int((x_grid_length-x_grid_start)/x_step)+1, int(z_grid_length / z_step)]).astype(float)
+    Theta_feld  = np.zeros([int((x_grid_length-x_grid_start)/x_step)+1, int(z_grid_length / z_step)]).astype(float)
+    Berg = np.zeros(int((x_grid_length-x_grid_start)/x_step)+1).astype(float)
 
+    x_counter = 0
+    for x in range(x_grid_start, x_grid_length, x_step):
 
-    for x in range(0,x_grid_length,x_step):
+        Berg[x_counter] = Z_s(x)
+        x_counter += 1
+        z_counter = 0
+
         for z in range(0,z_grid_length,z_step):
-            # Theta_feld.append(Theta(x,z))
+            Theta_feld[x_counter,z_counter] = Theta(x,z)
             # u_feld.append(u(x,z))
             # w_feld.append(w(x,z))
-            verschiebungen[int(x/x_step),int(z/z_step)] = (Verschiebung(x,z))
-            Berg[int(x/x_step)] = Z_s(x)
+            verschiebungen[x_counter,z_counter] = Verschiebung(x,z)
+            z_counter += 1
 
-            x_vals.append(x)
-            z_vals.append(z)
 
-    print(np.shape(verschiebungen))
-    print(np.shape(np.arange(0, z_grid_length, z_step)))
-    cs = plt.contourf(np.arange(0,x_grid_length,x_step),np.arange(0,z_grid_length,z_step),verschiebungen.transpose())
-    plt.colorbar(cs)
-    # plt.plot(np.arange(0,500),Berg)
+
+    # print(np.shape(Berg))
+    # print(np.shape(verschiebungen))
+    # print(np.shape(np.arange(x_grid_start,x_grid_length,x_step)))
+
+    fig = plt.figure(figsize=(16,9))
+    ax1 = fig.add_subplot(211)
+
+    #plotte Stromlinienverschiebungen:
+    cs = ax1.contourf(np.arange(x_grid_start,x_grid_length+1,x_step),np.arange(0,z_grid_length,z_step),verschiebungen.transpose(),cmap="jet")
+    cb = plt.colorbar(cs,cax=ax1)
+
+    #plotte Theta-Feld
+    ax2 = fig.add_subplot(212)
+    levels = np.arange(280,320,1)
+    theta_plot = ax2.contourf(np.arange(x_grid_start,x_grid_length+1,x_step),np.arange(0,z_grid_length,z_step),Theta_feld.transpose(),cmap="jet", levels=levels)
+    cb2 = plt.colorbar(theta_plot,cax=ax2)
+
+
+    #plotte Berg:
+    ax1.fill_between(np.arange(x_grid_start,x_grid_length+1,x_step),0,Berg,color="black")
+    ax2.fill_between(np.arange(x_grid_start,x_grid_length+1,x_step),0,Berg,color="black")
