@@ -97,14 +97,6 @@ def w(x,z):
 
     return U*dx
 
-def w1(X,Z):
-        return U * (
-        - (2 * L_xb ** 3 * L_zb ** 2 * N()* X ** 2 * np.cos(N()/ U * (Z - Z_s(X)))) / (U * (L_xb ** 2 + X ** 2) ** 3) \
-        - (2 * L_xb ** 2 * L_zb * X * np.cos(N()/ U * (Z - Z_s(X)))) / (L_xb ** 2 + X ** 2) ** 2 \
-        - (2 * L_xb ** 4 * L_zb ** 2 * N()* X * np.sin(N()/ U * (Z - Z_s(X)))) / (U * (L_xb ** 2 + X ** 2) ** 3) \
-        + (2 * L_xb * L_zb * X ** 2 * np.sin(N()/ U * (Z - Z_s(X)))) / (L_xb ** 2 + X ** 2) ** 2 \
-        - (L_xb * L_zb * np.sin(N()/ U * (Z - Z_s(X)))) / (L_xb ** 2 + X ** 2))
-
 
 def u(x,z):
     dz = -Z_s(x) * np.sin( N()/U * (z-Z_s(x)) ) * N()/U - x/L_xb * Z_s(x) * np.cos( N()/U * (z-Z_s(x)) ) * N()/U
