@@ -12,7 +12,7 @@ module baromod
     real, parameter :: radea = 6.371E6    ! radius of the earth [m]
     real, parameter :: omega = 0.00007292 ! angular velocity [1/s]
     !
-    integer :: nrun = 1        !  no timesteps to be computed
+    integer :: nrun = 100        !  no timesteps to be computed
     integer :: nout = 1        !  output interval
     !
     real :: rlat = 50.          ! central latitude of the channel
@@ -517,7 +517,6 @@ subroutine euler(pfm, pdfdt, pf, pdelt, kx, ky)
     enddo
 
     return
-    end subroutine euler
 
 end
 !
@@ -533,17 +532,23 @@ subroutine leapfrog(pf, pfm, pdfdt, pdelt2, kx, ky)
     integer :: ky                ! y dimension
     real :: pdelt2               ! 2.* timestep
     real :: pf(0 : kx + 1, 0 : ky + 1)    ! input/output f(t)
+    real :: pf_star(0 : kx + 1, 0 : ky + 1)    ! pf*
     real,intent(inout) :: pfm(0 : kx + 1, 0 : ky + 1)   ! input/output f(t-1) (filtered)
     real :: pdfdt(0 : kx + 1, 0 : ky + 1) ! input tendency
     real :: pf_temp(0 : kx + 1, 0 : ky + 1) !temporary t+1
 
+    integer :: i,j  !loop variable
+
+    real :: gamma=0.1   ! Rober-Asselin filter
     !
     do j=1,ky
         do i=1,kx
-            pf_temp(i,j) = pfm(i,j) + pdelt2 * (-pdfdt(i,j) * pf(i,j) + pf(i,j))
+            pf_temp(i,j) = pfm(i,j) + pdelt2 * pdfdt(i,j)
+            pf_star(i,j) = pf(i,j) + gamma * (pfm(i,j) - 2 * pf(i,j) + pf_temp(i,j))
         end do
     end do
-    pfm = pf
+
+    pfm = pf_star
     pf = pf_temp
     return
 end subroutine leapfrog
@@ -551,10 +556,12 @@ end subroutine leapfrog
 subroutine CFL(pu,pv,pdx,pdy,pdt,kx,ky)
     implicit none
 
-    real, intent(in) :: pu,pv   ! speed
-    real,intent(in) :: pdx,pdy ! gridwidth
-    real,intent(in) :: pdt ! timestep
-    integer,intent(in) :: kx,ky ! grid
+
+    real :: pdx,pdy ! gridwidth
+    real :: pdt ! timestep
+    integer :: kx,ky ! grid
+
+    real :: pu(kx,ky),pv(kx,ky)   ! speed
 
     integer :: i,j ! loop variables
 

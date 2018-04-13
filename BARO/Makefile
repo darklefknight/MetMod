@@ -1,8 +1,8 @@
 
 FC = "f95"
 
-baro.x: baro.f90
-	$(FC) -c baro.f90
+baro.x: baro.f90 baro.o
+	$(FC) -o baro.f90
 
 run:
 	./baro.x
