@@ -510,8 +510,8 @@ subroutine euler(pfm, pdfdt, pf, pdelt, kx, ky)
     !
     integer :: i,j ! loop variables
 
-    do j=1,ky-1
-        do i=1,kx-1
+    do j=1,ky
+        do i=1,kx
             pf(i,j) = pfm(i,j) + pdelt * pdfdt(i,j)
         enddo
     enddo
