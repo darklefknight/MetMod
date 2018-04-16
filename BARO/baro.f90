@@ -100,7 +100,8 @@ subroutine baroini
     !     set coriolis parameter amd beta according to central latitude
     !
     f0 = 2. * omega * sin(zlat)
-    beta = 2. * omega * cos(zlat) / radea
+!    beta = 2. * omega * cos(zlat) / radea
+    beta = 0
     !
     !     print grid information
     !
@@ -586,7 +587,7 @@ subroutine leapfrog(pf, pfm, pdfdt, pdelt2, kx, ky)
 
     integer :: i, j  !loop variable
 
-    real :: gamma = 0.1   ! Rober-Asselin filter
+    real :: gamma = 0  ! Rober-Asselin filter
     !
     do j = 1, ky
         do i = 1, kx
