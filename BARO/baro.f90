@@ -163,7 +163,7 @@ subroutine barostep
     !
     call mkuv(s, zu, zv, dx, dy, NX, NY)
     !
-    call CFL(zu,zv,dx,dy,delt,NX,NY)  ! Courant Friedrich Levi
+    call CFL(zu, zv, dx, dy, delt, NX, NY)  ! Courant Friedrich Levi
     call leapfrog(s, sm, dsdt, delt2, NX, NY)
     !
     !     d) apply boundary conditions to streamfunction
@@ -426,11 +426,26 @@ subroutine sor(pdf, pf, pdx, pdy, kx, ky)
     integer :: ky                ! y dimension
     real :: pdx                  ! x grid point distance
     real :: pdy                  ! y grid point distance
-    real :: pdf(0 : kx + 1, 0 : ky + 1)   ! input: field
-    real :: pf(0 : kx + 1, 0 : ky + 1)    ! output: inverse Laplacian of input
+    real :: pdf(0 : kx + 1, 0 : ky + 1)   ! input: field (zdt)
+    real :: pf(0 : kx + 1, 0 : ky + 1)    ! output: inverse Laplacian of input (dsdt)
+    integer :: i, j               ! counter for loops
+    real :: om = 1.5             ! 1 < om < 2
     !
+    call boundary(pf, kx, ky)      ! set boundary values
+
+    do j = 1, ky
+        do i = 1, kx
+            pf(i, j) = pf(i, j) + om * (1 / (pdx * pdx) * (pf(i + 1, j) + pf(i - 1, j) &
+                    & - 2 * pf(i, j)) + 1 / (pdy * pdy) * (pf(i, j - 1) + pf(i, j + 1) &
+                    & - 2 * pf(i, j)) - pdf(i, j)) / (2 / (pdx * pdx) + 2 / (pdy * pdy))
+        enddo
+    enddo
+
+    call boundary(pf, kx, ky)      ! set new boundary values
+
     return
 end
+
 !
 !-----------------------------------------------------------------------
 !
@@ -446,11 +461,11 @@ subroutine mkdfdx(pf, pdfdx, pdx, kx, ky)
     real, intent(in) :: pf(0 : kx + 1, 0 : ky + 1)     ! input: field
     real, intent(out) :: pdfdx(0 : kx + 1, 0 : ky + 1)  ! output: dfield/dx
     !
-    integer :: i,j ! loop variable
+    integer :: i, j ! loop variable
 
-    do j=1,ky
-        do i=1,kx
-            pdfdx(i,j) = (pf(i+1,j) - pf(i-1,j)) / (2.*pdx)
+    do j = 1, ky
+        do i = 1, kx
+            pdfdx(i, j) = (pf(i + 1, j) - pf(i - 1, j)) / (2. * pdx)
         end do
     end do
     return
@@ -459,13 +474,6 @@ end
 !-----------------------------------------------------------------------
 !
 subroutine jacobi(p1, p2, pj, pdx, pdy, kx, ky)
-    implicit none
-    !
-    !     subroutine jacobi computes the jacobi operator according to
-    !     Arakawa (1966)
-    !
-    !     jacobi(1,2)=(j1+j2+j3)/3. after Arakawa 1966
-    !
     integer :: kx              ! x-dimension
     integer :: ky              ! y-dimension
     real :: p1(0 : kx + 1, 0 : ky + 1)  ! input: field 1
@@ -473,9 +481,34 @@ subroutine jacobi(p1, p2, pj, pdx, pdy, kx, ky)
     real :: pj(0 : kx + 1, 0 : ky + 1)  ! output: jacobi(1,2)
     real :: pdx                ! x grid distance
     real :: pdy                ! y grid distance
-    !
+    integer :: i
+    integer :: j
+    real :: J1(0 : kx + 1, 0 : ky + 1)
+    real :: J2(0 : kx + 1, 0 : ky + 1)
+    real :: J3(0 : kx + 1, 0 : ky + 1)
+    real :: J4(0 : kx + 1, 0 : ky + 1)
+    real, parameter :: f = 1. / 3.
+
+    do j = 1, ky
+        do i = 1, kx
+            J1(i, j) = (1 / (4 * pdx * pdy)) * (((p1(i + 1, j) - p1(i - 1, j)) * (p2(i, j + 1) - &
+                    & p2(i, j - 1))) - ((p1(i, j + 1) - p1(i, j - 1)) * (p2(i + 1, j) - p2(i - 1, j))))
+
+            J2(i, j) = (1 / (4 * pdx * pdy)) * ((p1(i + 1, j) * (p2(i + 1, j + 1) - p2(i + 1, j - 1))) - &
+                    & (p1(i - 1, j) * (p2(i - 1, j + 1) - p2(i - 1, j - 1))) - (p1(i, j + 1) * (p2(i + 1, j + 1) - &
+                    & p2(i - 1, j + 1))) + (p1(i, j - 1) * (p2(i + 1, j - 1) - p2(i - 1, j - 1))))
+
+            J3(i, j) = (1 / (4 * pdx * pdy)) * ((p2(i, j + 1) * (p1(i + 1, j + 1) - p1(i - 1, j + 1))) - &
+                    & (p2(i, j - 1) * (p1(i + 1, j + 1) - p1(i - 1, j - 1))) - (p2(i + 1, j) * (p1(i + 1, j + 1) - &
+                    & p1(i + 1, j - 1))) + (p2(i - 1, j) * (p1(i - 1, j + 1) - p1(i - 1, j - 1))))
+
+            pj(i, j) = f * (J1(i, j) + J2(i, j) + J3(i, j))
+        enddo
+    enddo
+
     return
 end
+
 !
 !-----------------------------------------------------------------------
 !
@@ -489,10 +522,24 @@ subroutine laplace(pf, pdf, pdx, pdy, kx, ky)
     real :: pdx                   ! x grid distance
     real :: pdy                   ! y grid distance
     real :: pf(0 : kx + 1, 0 : ky + 1)     ! input: field
-    real :: pdf(0 : kx + 1, 0 : ky + 1)    ! output: Laplacian
+    real :: pdf(0 : kx + 1, 0 : ky + 1)    ! output: Laplacian entspricht G ?!
+    integer :: i, j                ! counter for loops
     !
+    call boundary(pf, kx, ky)      ! set boundary values
+
+    do j = 1, ky
+        do i = 1, kx
+            pdf(i, j) = 1 / (pdx * pdx) * (pf(i + 1, j) + pf(i - 1, j) - 2 * pf(i, j)) &
+                    & + 1 / (pdy * pdy) * (pf(i, j + 1) + pf(i, j - 1) - 2 * pf(i, j))
+        enddo
+    enddo
+
+    call boundary(pdf, kx, ky)      ! set new boundary values
+
     return
 end
+!
+
 !
 !-----------------------------------------------------------------------
 !
@@ -501,18 +548,18 @@ subroutine euler(pfm, pdfdt, pf, pdelt, kx, ky)
     !
     !     subroutine euler does an explicit Euler time step
     !
-    integer,intent(in) :: kx                   ! x dimension
-    integer,intent(in) :: ky                   ! y dimension
-    real,intent(in) :: pdelt                ! time step [s]
-    real,intent(in) :: pfm(0 : kx + 1, 0 : ky + 1)   ! input f(t)
-    real,intent(in) :: pdfdt(0 : kx + 1, 0 : ky + 1) ! input tendency
-    real,intent(out) :: pf(0 : kx + 1, 0 : ky + 1)    ! output f(t+1)
+    integer, intent(in) :: kx                   ! x dimension
+    integer, intent(in) :: ky                   ! y dimension
+    real, intent(in) :: pdelt                ! time step [s]
+    real, intent(in) :: pfm(0 : kx + 1, 0 : ky + 1)   ! input f(t)
+    real, intent(in) :: pdfdt(0 : kx + 1, 0 : ky + 1) ! input tendency
+    real, intent(out) :: pf(0 : kx + 1, 0 : ky + 1)    ! output f(t+1)
     !
-    integer :: i,j ! loop variables
+    integer :: i, j ! loop variables
 
-    do j=1,ky
-        do i=1,kx
-            pf(i,j) = pfm(i,j) + pdelt * pdfdt(i,j)
+    do j = 1, ky
+        do i = 1, kx
+            pf(i, j) = pfm(i, j) + pdelt * pdfdt(i, j)
         enddo
     enddo
 
@@ -533,18 +580,18 @@ subroutine leapfrog(pf, pfm, pdfdt, pdelt2, kx, ky)
     real :: pdelt2               ! 2.* timestep
     real :: pf(0 : kx + 1, 0 : ky + 1)    ! input/output f(t)
     real :: pf_star(0 : kx + 1, 0 : ky + 1)    ! pf*
-    real,intent(inout) :: pfm(0 : kx + 1, 0 : ky + 1)   ! input/output f(t-1) (filtered)
+    real, intent(inout) :: pfm(0 : kx + 1, 0 : ky + 1)   ! input/output f(t-1) (filtered)
     real :: pdfdt(0 : kx + 1, 0 : ky + 1) ! input tendency
     real :: pf_temp(0 : kx + 1, 0 : ky + 1) !temporary t+1
 
-    integer :: i,j  !loop variable
+    integer :: i, j  !loop variable
 
-    real :: gamma=0.1   ! Rober-Asselin filter
+    real :: gamma = 0.1   ! Rober-Asselin filter
     !
-    do j=1,ky
-        do i=1,kx
-            pf_temp(i,j) = pfm(i,j) + pdelt2 * pdfdt(i,j)
-            pf_star(i,j) = pf(i,j) + gamma * (pfm(i,j) - 2 * pf(i,j) + pf_temp(i,j))
+    do j = 1, ky
+        do i = 1, kx
+            pf_temp(i, j) = pfm(i, j) + pdelt2 * pdfdt(i, j)
+            pf_star(i, j) = pf(i, j) + gamma * (pfm(i, j) - 2 * pf(i, j) + pf_temp(i, j))
         end do
     end do
 
@@ -553,25 +600,24 @@ subroutine leapfrog(pf, pfm, pdfdt, pdelt2, kx, ky)
     return
 end subroutine leapfrog
 
-subroutine CFL(pu,pv,pdx,pdy,pdt,kx,ky)
+subroutine CFL(pu, pv, pdx, pdy, pdt, kx, ky)
     implicit none
 
-
-    real :: pdx,pdy ! gridwidth
+    real :: pdx, pdy ! gridwidth
     real :: pdt ! timestep
-    integer :: kx,ky ! grid
+    integer :: kx, ky ! grid
 
-    real :: pu(kx,ky),pv(kx,ky)   ! speed
+    real :: pu(kx, ky), pv(kx, ky)   ! speed
 
-    integer :: i,j ! loop variables
+    integer :: i, j ! loop variables
 
-    do j=1,ky
-        do i=1,kx
-            if (pu(i,j)*pdt / pdx > 1) then
-                write(*,*) "Courant Levi Criterion not fullfilled"
+    do j = 1, ky
+        do i = 1, kx
+            if (pu(i, j) * pdt / pdx > 1) then
+                write(*, *) "Courant Levi Criterion not fullfilled"
                 stop
-            else if (pv(i,j)*pdt / pdy > 1) then
-                write(*,*) "Courant Levi Criterion not fullfilled"
+            else if (pv(i, j) * pdt / pdy > 1) then
+                write(*, *) "Courant Levi Criterion not fullfilled"
                 stop
             endif
         end do
