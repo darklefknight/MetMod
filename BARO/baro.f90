@@ -100,8 +100,8 @@ subroutine baroini
     !     set coriolis parameter amd beta according to central latitude
     !
     f0 = 2. * omega * sin(zlat)
-!    beta = 2. * omega * cos(zlat) / radea
-    beta = 0
+    beta = 2. * omega * cos(zlat) / radea
+!    beta = 0.
     !
     !     print grid information
     !
@@ -587,7 +587,7 @@ subroutine leapfrog(pf, pfm, pdfdt, pdelt2, kx, ky)
 
     integer :: i, j  !loop variable
 
-    real :: gamma = 0  ! Rober-Asselin filter
+    real :: gamma = 0.1  ! Rober-Asselin filter
     !
     do j = 1, ky
         do i = 1, kx
@@ -616,9 +616,13 @@ subroutine CFL(pu, pv, pdx, pdy, pdt, kx, ky)
         do i = 1, kx
             if (pu(i, j) * pdt / pdx > 1) then
                 write(*, *) "Courant Levi Criterion not fullfilled"
+                write(*,*) " pu = ", pu(i,j), "|pv = ", pv(i,j)
+                write(*,*) "At i = " , i, "| j = ", j
                 stop
             else if (pv(i, j) * pdt / pdy > 1) then
                 write(*, *) "Courant Levi Criterion not fullfilled"
+                write(*,*) " pu = ", pu(i,j), "|pv = ", pv(i,j)
+                write(*,*) "At i = " , i, "| j = ", j
                 stop
             endif
         end do

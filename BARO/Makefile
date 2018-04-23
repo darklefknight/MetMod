@@ -1,5 +1,5 @@
 
-FC = "f95"
+FC = gfortran
 
 baro.x: baro.f90
 	$(FC) -o baro.x baro.f90
