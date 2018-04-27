@@ -417,36 +417,74 @@ end
 !     the folowing subroutines are just dummies and need to be
 !     replaced 
 !
-subroutine sor(pdf, pf, pdx, pdy, kx, ky)
-    implicit none
-    !
-    !     subroutine sor computes the inverse Laplacian from a given field
-    !     by using the Successive OverRelaxation method (SOR)
-    !
-    integer :: kx                ! x dimension
-    integer :: ky                ! y dimension
-    real :: pdx                  ! x grid point distance
-    real :: pdy                  ! y grid point distance
-    real :: pdf(0 : kx + 1, 0 : ky + 1)   ! input: field (zdt)
-    real :: pf(0 : kx + 1, 0 : ky + 1)    ! output: inverse Laplacian of input (dsdt)
-    integer :: i, j               ! counter for loops
-    real :: om = 1.5             ! 1 < om < 2
-    !
-    call boundary(pf, kx, ky)      ! set boundary values
+      subroutine sor(pdf,pf,pdx,pdy,kx,ky)
+      implicit none
+!
+!     subroutine sor computes the inverse Laplacian from a given field
+!     by using the Successive OverRelaxation method (SOR)
+!
+      integer, intent(in) :: kx                   ! x dimension
+      integer, intent(in) :: ky                   ! y dimension
+      
+      integer :: iter                             ! number of iterations needed
+      integer :: i, j, k                          ! loop indices
+      
+      real, intent(in)    :: pdx                  ! x grid point distance
+      real, intent(in)    :: pdy                  ! y grid point distance
+      real, intent(in)    :: pdf(0:kx+1,0:ky+1)   ! input: field
+      real, intent(inout) :: pf(0:kx+1,0:ky+1)    ! output: inverse Laplacian of input
 
-    do j = 1, ky
-        do i = 1, kx
-            pf(i, j) = pf(i, j) + om * (1 / (pdx * pdx) * (pf(i + 1, j) + pf(i - 1, j) &
-                    & - 2 * pf(i, j)) + 1 / (pdy * pdy) * (pf(i, j - 1) + pf(i, j + 1) &
-                    & - 2 * pf(i, j)) - pdf(i, j)) / (2 / (pdx * pdx) + 2 / (pdy * pdy))
-        enddo
-    enddo
+      real :: zerr = 0.                           ! error at every grid point
+      real :: zacc_ini = 0.                       ! initial accuracy = max zerr initial
+      real :: zacc = 0.                           ! accuracy = max zerr
+      real, parameter :: omega = 1.5              ! over correction
+      real, parameter :: eps = 1.E-4              ! minimal error reduction
+!
+      ! make sure of the right boundaries
+      call boundary(pf,kx,ky)
+      call boundary(pdf,kx,ky)
 
-    call boundary(pf, kx, ky)      ! set new boundary values
+      ! calculate the number of iterations
+      iter = kx * ky * abs(log10(eps)) / 3
 
-    return
-end
+      ! calculate the initial error
+      do j=ky,1,-1
+        do i=1,kx
+          zerr =  (1 / (pdx*pdx) * (pf(i+1,j) + pf(i-1,j) - 2 * pf(i,j))        &
+          &     +  1 / (pdy*pdy) * (pf(i,j+1) + pf(i,j-1) - 2 * pf(i,j))       &
+          &     - pdf(i,j))
 
+          zacc_ini = zacc_ini + (abs(zerr) / (kx*ky))
+        end do
+      end do
+
+      ! calculate the sor
+      do k = 1,iter
+        zacc = 0.
+        do j=ky,1,-1
+          do i=1,kx
+            zerr = (1 / (pdx*pdx) * (pf(i+1,j) + pf(i-1,j) - 2 * pf(i,j))      &
+            &     +  1 / (pdy*pdy) * (pf(i,j+1) + pf(i,j-1) - 2 * pf(i,j))     &
+            &     - pdf(i,j))
+            
+            pf(i,j) = pf(i,j) + omega * zerr / (2 / (pdx*pdx) + 2 / (pdy*pdy))
+
+            zacc = zacc + (abs(zerr) / (kx*ky))
+          end do
+        end do
+
+        if (zacc <= zacc_ini*eps) then
+          exit
+        end if
+      end do
+
+      ! debug manually...
+      !print*, k*1.0/iter*1.0,' percent of maximal iterations needed'
+
+      call boundary(pdf,kx,ky)
+
+      return
+      end
 !
 !-----------------------------------------------------------------------
 !
